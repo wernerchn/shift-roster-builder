@@ -1,85 +1,85 @@
-@import "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-* { font-family: 'Inter', sans-serif; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body { background: #0F0F14; color: #e2e8f0; }
-
-.glass {
-  background: rgba(26, 26, 36, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #F7F8FA;
+  color: #1A202C;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Card */
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Shift pill */
 .shift-pill {
-  background: rgba(99, 102, 241, 0.25);
-  border: 1px solid rgba(99, 102, 241, 0.5);
-  color: #a5b4fc;
-  border-radius: 6px;
-  padding: 2px 7px;
-  font-size: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  margin-bottom: 3px;
-  transition: all 0.2s;
+  background: #EBF4FF;
+  color: #2563EB;
+  border: 1px solid #BFDBFE;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  cursor: grab;
+  user-select: none;
 }
-
-.shift-pill:hover { background: rgba(99, 102, 241, 0.4); }
-
+.shift-pill:hover { background: #DBEAFE; }
 .shift-pill.conflict {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.6);
-  color: #fca5a5;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+  background: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
 }
 
-.cell-hover:hover .add-hint { opacity: 1; }
-.add-hint { opacity: 0; transition: opacity 0.2s; color: #4b5563; font-size: 1.2rem; cursor: pointer; }
+/* Add hint */
+.add-hint {
+  color: #CBD5E0;
+  font-size: 1.1rem;
+  display: block;
+  text-align: center;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+td:hover .add-hint { color: #4A90E2; }
 
+/* Pulse amber dot */
 @keyframes pulse-amber {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.4); }
 }
 .pulse-amber { animation: pulse-amber 2s infinite; }
 
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+
+/* Print */
 @media print {
-  /* 隱藏所有按鈕和 modal */
-  button { display: none !important; }
-
-  /* 黑底改白底 */
-  body, #root > div {
-    background: white !important;
-    color: black !important;
-    padding: 12px !important;
-  }
-
-  /* 移除 glass 效果 */
-  .glass {
-    background: white !important;
-    border: 1px solid #e2e8f0 !important;
+  body { background: white !important; }
+  .no-print { display: none !important; }
+  .card {
     box-shadow: none !important;
-    backdrop-filter: none !important;
+    border: 1px solid #E2E8F0 !important;
   }
-
-  /* 文字改黑色 */
-  h1, h2, h3, span, td, th, p {
-    color: black !important;
-  }
-
-  /* 強制所有欄位顯示 */
   table { page-break-inside: avoid; }
+}
 
-  /* shift pill 改成黑白版本 */
-  .shift-pill {
-    background: #f1f5f9 !important;
-    color: #1e293b !important;
-    border: 1px solid #cbd5e0 !important;
-  }
-
-  /* 隱藏 bento grid 右側 stats（只印 grid + summary） */
-  div[style*="gridColumn: '9"] { display: none !important; }
+/* Mobile */
+@media (max-width: 768px) {
+  .stats-bar { flex-direction: column !important; }
+  .main-grid { grid-template-columns: 1fr !important; }
+  table { font-size: 0.78rem; }
+  .shift-pill { font-size: 0.7rem; padding: 3px 6px; }
 }

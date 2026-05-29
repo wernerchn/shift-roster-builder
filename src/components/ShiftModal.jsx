@@ -5,55 +5,37 @@ import { isUnavailable } from '../utils/availabilityHelpers';
 
 export default function ShiftModal({ employees, shifts, prefill, onSave, onClose }) {
   const defaultDate = prefill?.date || toISODate(new Date());
-  const [employeeId, setEmployeeId] = useState(
-    prefill?.employeeId ? String(prefill.employeeId) : ''
-  );
+  const [employeeId, setEmployeeId] = useState(prefill?.employeeId ? String(prefill.employeeId) : '');
   const [date, setDate] = useState(defaultDate);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState('');
 
   const selectedEmp = employees.find(e => e.id === Number(employeeId));
-  const isMidnightCross = startTime !== '' && endTime !== '' && startTime > endTime;
-
-  // Availability warning
+  const isMidnightCross = startTime && endTime && startTime > endTime;
   const unavailableWarning = selectedEmp && isUnavailable(selectedEmp, date)
-    ? `${selectedEmp.name} is marked unavailable on ${new Date(date).toLocaleDateString('en-US', { weekday: 'long' })}s`
+    ? `${selectedEmp.name} is marked unavailable on ${new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}s`
     : null;
 
-  // Overlap preview
   const previewConflict = (() => {
     if (!employeeId || isMidnightCross) return false;
-    const preview = {
-      id: 'preview',
-      employeeId: Number(employeeId),
-      date,
-      startTime,
-      endTime,
-    };
-    const { overlapShiftIds } = getEmployeeConflicts(
-      Number(employeeId),
-      [...shifts, preview]
-    );
+    const preview = { id: 'preview', employeeId: Number(employeeId), date, startTime, endTime };
+    const { overlapShiftIds } = getEmployeeConflicts(Number(employeeId), [...shifts, preview]);
     return overlapShiftIds.has('preview');
   })();
 
   const handleSave = () => {
     if (!employeeId) { setError('Please select an employee'); return; }
     if (startTime === endTime) { setError('Start and end time cannot be the same'); return; }
-
     const empId = Number(employeeId);
-
     if (startTime < endTime) {
       onSave({ employeeId: empId, date, startTime, endTime });
       return;
     }
-
-    // 跨午夜：自動拆成兩段
-    const nextDateISO = toISODate(addDays(new Date(date), 1));
+    const nextDate = toISODate(addDays(new Date(date), 1));
     onSave([
       { employeeId: empId, date, startTime, endTime: '23:59' },
-      { employeeId: empId, date: nextDateISO, startTime: '00:00', endTime },
+      { employeeId: empId, date: nextDate, startTime: '00:00', endTime },
     ]);
   };
 
@@ -61,132 +43,55 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
     <div
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(15,15,20,0.4)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000, backdropFilter: 'blur(4px)',
       }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="glass" style={{ padding: 28, minWidth: 360, maxWidth: 420, width: '90%' }}>
-        <h3 style={{ margin: '0 0 20px', color: '#f1f5f9', fontSize: '1.05rem' }}>
-          📅 Add Shift
+      <div className="card" style={{ padding: 28, minWidth: 360, maxWidth: 420, width: '90%' }}>
+        <h3 style={{ margin: '0 0 20px', color: '#1A202C', fontSize: '1rem', fontWeight: 700 }}>
+          Add Shift
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Employee */}
           <div>
             <label style={labelStyle}>Employee</label>
-            <select
-              value={employeeId}
-              onChange={e => setEmployeeId(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">-- Select --</option>
-              {employees.map(e => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={inputStyle}>
+              <option value="">— Select —</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>
-
-          {/* Date */}
           <div>
             <label style={labelStyle}>Date</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              style={inputStyle}
-            />
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
-
-          {/* Start Time */}
-          <div>
-            <label style={labelStyle}>Start Time</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={e => setStartTime(e.target.value)}
-              style={inputStyle}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Start</label>
+              <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>End</label>
+              <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={inputStyle} />
+            </div>
           </div>
-
-          {/* End Time */}
-          <div>
-            <label style={labelStyle}>End Time</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={e => setEndTime(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
         </div>
 
-        {/* Availability warning */}
         {unavailableWarning && (
-          <div style={{
-            marginTop: 12, padding: '8px 12px',
-            background: 'rgba(245,158,11,0.15)',
-            border: '1px solid rgba(245,158,11,0.35)',
-            borderRadius: 8, color: '#fcd34d', fontSize: '0.82rem',
-          }}>
-            ⚠️ {unavailableWarning}
-          </div>
+          <div style={alertStyle('#FFFBEB', '#FDE68A', '#92400E')}>⚠️ {unavailableWarning}</div>
         )}
-
-        {/* Midnight cross info */}
         {isMidnightCross && (
-          <div style={{
-            marginTop: 12, padding: '8px 12px',
-            background: 'rgba(59,130,246,0.15)',
-            border: '1px solid rgba(59,130,246,0.3)',
-            borderRadius: 8, color: '#bfdbfe', fontSize: '0.82rem',
-          }}>
-            ℹ️ This shift crosses midnight — it will be split into two shifts automatically.
-          </div>
+          <div style={alertStyle('#EFF6FF', '#BFDBFE', '#1E40AF')}>ℹ️ Crosses midnight — will be split into two shifts</div>
         )}
-
-        {/* Overlap conflict preview */}
         {previewConflict && (
-          <div style={{
-            marginTop: 12, padding: '8px 12px',
-            background: 'rgba(239,68,68,0.15)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 8, color: '#fca5a5', fontSize: '0.82rem',
-          }}>
-            ⚠️ This shift overlaps with an existing shift on this date
-          </div>
+          <div style={alertStyle('#FEF2F2', '#FECACA', '#991B1B')}>⚠️ Overlaps with an existing shift</div>
         )}
-
-        {error && (
-          <p style={{ color: '#fca5a5', fontSize: '0.82rem', margin: '8px 0 0' }}>
-            {error}
-          </p>
-        )}
+        {error && <p style={{ color: '#EF4444', fontSize: '0.82rem', marginTop: 8 }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button
-            onClick={handleSave}
-            style={{
-              flex: 1, background: '#6366F1', color: 'white',
-              border: 'none', borderRadius: 10, padding: '10px',
-              fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
-            }}
-          >
-            Save Shift
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1, background: 'transparent', color: '#94a3b8',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 10, padding: '10px', cursor: 'pointer', fontSize: '0.9rem',
-            }}
-          >
-            Cancel
-          </button>
+          <button onClick={handleSave} style={primaryBtnStyle}>Save Shift</button>
+          <button onClick={onClose} style={secondaryBtnStyle}>Cancel</button>
         </div>
       </div>
     </div>
@@ -194,17 +99,29 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
 }
 
 const labelStyle = {
-  display: 'block', fontSize: '0.78rem', color: '#64748b',
+  display: 'block', fontSize: '0.72rem', color: '#718096',
   fontWeight: 600, marginBottom: 6,
   textTransform: 'uppercase', letterSpacing: '0.05em',
 };
-
 const inputStyle = {
-  width: '100%',
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 8, padding: '8px 12px',
-  color: '#e2e8f0', fontSize: '0.9rem',
+  width: '100%', background: '#FFFFFF',
+  border: '1px solid #CBD5E0', borderRadius: 8,
+  padding: '8px 12px', color: '#1A202C', fontSize: '0.875rem',
   outline: 'none', boxSizing: 'border-box',
-  colorScheme: 'dark',
+  transition: 'border-color 0.15s',
 };
+const primaryBtnStyle = {
+  flex: 1, background: '#4A90E2', color: 'white', border: 'none',
+  borderRadius: 8, padding: '10px', fontWeight: 600,
+  cursor: 'pointer', fontSize: '0.875rem', transition: 'background 0.15s',
+};
+const secondaryBtnStyle = {
+  flex: 1, background: '#F7F8FA', color: '#4A5568',
+  border: '1px solid #E2E8F0', borderRadius: 8,
+  padding: '10px', cursor: 'pointer', fontSize: '0.875rem',
+};
+const alertStyle = (bg, border, text) => ({
+  marginTop: 12, padding: '8px 12px',
+  background: bg, border: `1px solid ${border}`,
+  borderRadius: 8, color: text, fontSize: '0.8rem', lineHeight: 1.5,
+});
