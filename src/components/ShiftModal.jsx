@@ -41,15 +41,17 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
 
   return (
     <div
+      className="modal-overlay"
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(15,15,20,0.4)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000, backdropFilter: 'blur(4px)',
+        padding: '16px',
       }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="card" style={{ padding: 28, minWidth: 360, maxWidth: 420, width: '90%' }}>
+      <div className="card modal-box" style={{ padding: 28, width: '100%', maxWidth: 420 }}>
         <h3 style={{ margin: '0 0 20px', color: '#1A202C', fontSize: '1rem', fontWeight: 700 }}>
           Add Shift
         </h3>
@@ -104,24 +106,28 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: '0.05em',
 };
 const inputStyle = {
-  width: '100%', background: '#FFFFFF',
-  border: '1px solid #CBD5E0', borderRadius: 8,
-  padding: '8px 12px', color: '#1A202C', fontSize: '0.875rem',
-  outline: 'none', boxSizing: 'border-box',
-  transition: 'border-color 0.15s',
-};
-const primaryBtnStyle = {
-  flex: 1, background: '#4A90E2', color: 'white', border: 'none',
-  borderRadius: 8, padding: '10px', fontWeight: 600,
-  cursor: 'pointer', fontSize: '0.875rem', transition: 'background 0.15s',
-};
-const secondaryBtnStyle = {
-  flex: 1, background: '#F7F8FA', color: '#4A5568',
+  width: '100%', padding: '8px 12px',
   border: '1px solid #E2E8F0', borderRadius: 8,
-  padding: '10px', cursor: 'pointer', fontSize: '0.875rem',
+  fontSize: '0.875rem', color: '#1A202C',
+  background: '#F7F8FA', outline: 'none',
+  fontFamily: 'inherit', boxSizing: 'border-box',
 };
-const alertStyle = (bg, border, text) => ({
+const alertStyle = (bg, border, color) => ({
   marginTop: 12, padding: '8px 12px',
   background: bg, border: `1px solid ${border}`,
-  borderRadius: 8, color: text, fontSize: '0.8rem', lineHeight: 1.5,
+  borderRadius: 8, fontSize: '0.78rem',
+  color, lineHeight: 1.5,
 });
+const primaryBtnStyle = {
+  flex: 1, background: '#4A90E2', color: 'white',
+  border: 'none', borderRadius: 8, padding: '10px',
+  fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem',
+  fontFamily: 'inherit',
+};
+const secondaryBtnStyle = {
+  flex: 1, background: '#F7F8FA',
+  border: '1px solid #E2E8F0', color: '#718096',
+  borderRadius: 8, padding: '10px',
+  fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem',
+  fontFamily: 'inherit',
+};

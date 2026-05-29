@@ -71,10 +71,12 @@ export default function App() {
   const [currentWeekStart, setCurrentWeekStart] = useState(
     () => startOfWeek(new Date())
   );
-
   const dragShiftId = useRef(null);
   const dateInputRef = useRef(null);
   const [dragOverCell, setDragOverCell] = useState(null);
+  const [chartFilter, setChartFilter] = useState('all');
+  const [chartHover, setChartHover] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
   useEffect(() => { localStorage.setItem('shifts', JSON.stringify(shifts)); }, [shifts]);
@@ -155,7 +157,23 @@ export default function App() {
     ),
     [weekShifts, weekDateStrings]
   );
-  const maxDayHours = Math.max(...hoursPerDay, 1);
+
+  const activeChartId = chartHover || (chartFilter !== 'all' ? chartFilter : null);
+  const filteredHoursPerDay = useMemo(() => {
+    if (!activeChartId) return hoursPerDay;
+    const empId = Number(activeChartId);
+    return weekDateStrings.map(iso =>
+      weekShifts.filter(s => s.employeeId === empId && s.date === iso).reduce((sum, s) => {
+        const [sh, sm] = s.startTime.split(':').map(Number);
+        const [eh, em] = s.endTime.split(':').map(Number);
+        return sum + (eh * 60 + em - sh * 60 - sm) / 60;
+      }, 0)
+    );
+  }, [activeChartId, weekShifts, weekDateStrings, hoursPerDay]);
+  const filteredMaxHours = Math.max(...filteredHoursPerDay, 1);
+  const chartLabel = activeChartId
+    ? employees.find(e => e.id === Number(activeChartId))?.name || 'All'
+    : 'All Staff';
 
   const allConflicts = useMemo(
     () => employees.flatMap(emp => {
@@ -168,13 +186,20 @@ export default function App() {
     [employees, shifts]
   );
 
+  const filteredEmployees = useMemo(
+    () => employees.filter(emp =>
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [employees, searchQuery]
+  );
+
   return (
     <div style={{ minHeight: '100vh', background: '#F7F8FA' }}>
 
       {/* Top Nav */}
       <div className="no-print" style={{
         background: '#FFFFFF', borderBottom: '1px solid #E2E8F0',
-        padding: '0 32px', height: 56,
+        padding: '0 16px', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 100,
       }}>
@@ -197,7 +222,7 @@ export default function App() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px' }}>
+      <div className="page-body" style={{ maxWidth: 1280, margin: '0 auto', padding: '24px' }}>
 
         {/* Page Title */}
         <div style={{ marginBottom: 24 }}>
@@ -222,16 +247,47 @@ export default function App() {
           />
 
           {/* Hours Per Day Chart */}
-          <div className="card" style={{ padding: '16px 20px', flex: 2, minWidth: 220 }}>
+          <div className="card hours-chart-card" style={{ padding: '16px 20px', flex: 2, minWidth: 220 }}>
             <div style={{
-              fontSize: '0.72rem', color: '#718096', fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12,
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', marginBottom: 12,
             }}>
-              Hours Per Day
+              <div style={{
+                fontSize: '0.72rem', color: '#718096', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                Hours Per Day
+                {activeChartId && (
+                  <span style={{
+                    background: '#EBF4FF', color: '#2563EB',
+                    borderRadius: 4, padding: '1px 6px',
+                    fontSize: '0.65rem', fontWeight: 700,
+                    textTransform: 'none', letterSpacing: 0,
+                  }}>
+                    {chartLabel}
+                  </span>
+                )}
+              </div>
+              <select
+                value={chartFilter}
+                onChange={e => setChartFilter(e.target.value)}
+                style={{
+                  background: '#F7F8FA', border: '1px solid #E2E8F0',
+                  color: '#4A5568', borderRadius: 6,
+                  padding: '2px 6px', fontSize: '0.72rem',
+                  cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
+                }}
+              >
+                <option value="all">All</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 56 }}>
-              {hoursPerDay.map((h, i) => {
-                const barH = Math.max((h / maxDayHours) * 40, h > 0 ? 6 : 0);
+              {filteredHoursPerDay.map((h, i) => {
+                const barH = Math.max((h / filteredMaxHours) * 40, h > 0 ? 6 : 0);
                 return (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                     {h > 0 && (
@@ -266,19 +322,17 @@ export default function App() {
           {/* Roster Grid */}
           <div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{
+              <div className="roster-header" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '16px 20px', borderBottom: '1px solid #EDF2F7',
+                padding: '16px 20px', borderBottom: '1px solid #EDF2F7', flexWrap: 'wrap', gap: 10,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <button onClick={handlePrevWeek} style={navBtnStyle} className="no-print">←</button>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1A202C', minWidth: 160, textAlign: 'center' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1A202C', minWidth: 140, textAlign: 'center' }}>
                     {formatWeekLabel(currentWeekStart)}
                   </span>
                   <button onClick={handleNextWeek} style={navBtnStyle} className="no-print">→</button>
-
-                  {/* ── Date picker：直接顯示 native input，最可靠 ── */}
-                  <div className="no-print" style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: '0.8rem', color: '#A0AEC0' }}>📅</span>
                     <input
                       ref={dateInputRef}
@@ -286,26 +340,36 @@ export default function App() {
                       onChange={handleJumpToDate}
                       title="Jump to any date's week"
                       style={{
-                        background: '#F7F8FA',
-                        border: '1px solid #E2E8F0',
-                        color: '#4A5568',
-                        borderRadius: 8,
-                        padding: '4px 10px',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        outline: 'none',
-                        fontFamily: 'inherit',
+                        background: '#F7F8FA', border: '1px solid #E2E8F0',
+                        color: '#4A5568', borderRadius: 8,
+                        padding: '4px 10px', fontSize: '0.8rem',
+                        cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
                       }}
                     />
                   </div>
                 </div>
-                <span style={{ fontSize: '0.75rem', color: '#A0AEC0' }} className="no-print">
-                  💡 Drag to reassign
-                </span>
+
+                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search employee..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    style={{
+                      background: '#F7F8FA', border: '1px solid #E2E8F0',
+                      color: '#1A202C', borderRadius: 8,
+                      padding: '5px 12px', fontSize: '0.8rem',
+                      outline: 'none', width: 180, fontFamily: 'inherit',
+                    }}
+                  />
+                  <span className="drag-hint" style={{ fontSize: '0.75rem', color: '#A0AEC0' }}>
+                    💡 Drag to reassign
+                  </span>
+                </div>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
                   <thead>
                     <tr style={{ background: '#F7F8FA' }}>
                       <th style={thStyle}>Employee</th>
@@ -327,18 +391,28 @@ export default function App() {
                         </td>
                       </tr>
                     )}
-                    {employees.map((emp, rowIdx) => {
+                    {employees.length > 0 && filteredEmployees.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{
+                          textAlign: 'center', padding: '2rem',
+                          color: '#A0AEC0', fontSize: '0.9rem',
+                        }}>
+                          No employees match "{searchQuery}"
+                        </td>
+                      </tr>
+                    )}
+                    {filteredEmployees.map((emp, rowIdx) => {
                       const { overlapShiftIds, consecutiveConflict } = getEmployeeConflicts(emp.id, weekShifts);
                       return (
                         <tr key={emp.id} style={{ background: rowIdx % 2 === 0 ? '#FFFFFF' : '#F7F8FA' }}>
-                          <td style={{ ...tdStyle, minWidth: 140 }}>
+                          <td style={{ ...tdStyle, minWidth: 130 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <Avatar name={emp.name} size={26} />
-                              <div>
-                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1A202C' }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1A202C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {emp.name}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: '#A0AEC0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#A0AEC0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {emp.roles.join(', ')}
                                 </div>
                               </div>
@@ -366,7 +440,7 @@ export default function App() {
                               <td
                                 key={iso}
                                 style={{
-                                  ...tdStyle, minWidth: 100, cursor: 'pointer',
+                                  ...tdStyle, minWidth: 80, cursor: 'pointer',
                                   background: isOver
                                     ? 'rgba(74,144,226,0.08)'
                                     : unavail
@@ -388,7 +462,7 @@ export default function App() {
                                     borderRadius: 4, padding: '1px 5px',
                                     marginBottom: 3, fontWeight: 600, display: 'inline-block',
                                   }}>
-                                    ⚠️ Unavailable
+                                    ⚠️ Unavail
                                   </div>
                                 )}
                                 {dayShifts.length === 0
@@ -478,7 +552,7 @@ export default function App() {
 
             {/* Team */}
             <div className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1A202C' }}>Team</span>
                 <span style={{
                   background: '#EBF4FF', color: '#2563EB',
@@ -488,11 +562,32 @@ export default function App() {
                   {employees.length}
                 </span>
               </div>
+
+              <input
+                type="text"
+                placeholder="🔍 Search..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%', background: '#F7F8FA',
+                  border: '1px solid #E2E8F0', color: '#1A202C',
+                  borderRadius: 8, padding: '6px 10px',
+                  fontSize: '0.78rem', outline: 'none',
+                  boxSizing: 'border-box', marginBottom: 10,
+                  fontFamily: 'inherit',
+                }}
+              />
+
               <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                 {employees.length === 0 && (
                   <p style={{ color: '#A0AEC0', fontSize: '0.85rem' }}>No employees yet</p>
                 )}
-                {employees.map(emp => (
+                {employees.length > 0 && filteredEmployees.length === 0 && (
+                  <p style={{ color: '#A0AEC0', fontSize: '0.82rem', textAlign: 'center', padding: '8px 0' }}>
+                    No match for "{searchQuery}"
+                  </p>
+                )}
+                {filteredEmployees.map(emp => (
                   <div
                     key={emp.id}
                     style={{
@@ -546,7 +641,7 @@ export default function App() {
           <div className="card" style={{ marginTop: 24, padding: '20px 24px' }}>
             <div style={{
               display: 'flex', alignItems: 'center',
-              justifyContent: 'space-between', marginBottom: 16,
+              justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10,
             }}>
               <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1A202C' }}>
                 Weekly Summary
@@ -561,7 +656,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div className="summary-grid" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {employees.map(emp => {
                 const hours = calcTotalHours(emp.id, weekShifts);
                 const { hasAnyConflict } = getEmployeeConflicts(emp.id, weekShifts);
@@ -570,13 +665,22 @@ export default function App() {
                 const sc = hasAnyConflict ? '#EF4444' : hours >= 40 ? '#22C55E' : hours > 0 ? '#4A90E2' : '#CBD5E0';
                 const bgc = hasAnyConflict ? '#FEF2F2' : hours >= 40 ? '#F0FDF4' : hours > 0 ? '#EBF4FF' : '#F7F8FA';
                 const displayHours = roundHours(hours);
+                const isHovered = chartHover === String(emp.id);
 
                 return (
-                  <div key={emp.id} style={{
-                    background: bgc, border: `1px solid ${sc}33`,
-                    borderRadius: 10, padding: '12px 16px',
-                    minWidth: 180, maxWidth: 240, flex: '0 1 200px',
-                  }}>
+                  <div
+                    key={emp.id}
+                    style={{
+                      background: bgc, border: `1px solid ${isHovered ? sc : `${sc}33`}`,
+                      borderRadius: 10, padding: '12px 16px',
+                      minWidth: 160, maxWidth: 240, flex: '0 1 200px',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                      boxShadow: isHovered ? `0 0 0 2px ${sc}40` : 'none',
+                    }}
+                    onMouseEnter={() => setChartHover(String(emp.id))}
+                    onMouseLeave={() => setChartHover(null)}
+                  >
                     <div style={{
                       display: 'flex', alignItems: 'center',
                       justifyContent: 'space-between', marginBottom: 8,
@@ -601,7 +705,7 @@ export default function App() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.7rem', color: '#A0AEC0' }}>
-                        {empShiftCount} shift{empShiftCount !== 1 ? 's' : ''} · {displayHours} / 40h
+                        {empShiftCount} shift{empShiftCount !== 1 ? 's' : ''} · {displayHours}/40h
                       </span>
                       {hasAnyConflict && (
                         <span style={{
