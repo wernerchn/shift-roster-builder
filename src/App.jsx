@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { getEmployeeConflicts, calcTotalHours } from './utils/conflictUtils';
 import {
   startOfWeek, addDays, toISODate,
@@ -39,15 +39,17 @@ export default function App() {
     () => startOfWeek(new Date())
   );
 
+  // Drag & Drop state
+  const dragShiftId = useRef(null);
+  const [dragOverCell, setDragOverCell] = useState(null); // { employeeId, date }
+
   useEffect(() => {
     localStorage.setItem('employees', JSON.stringify(employees));
   }, [employees]);
-
   useEffect(() => {
     localStorage.setItem('shifts', JSON.stringify(shifts));
   }, [shifts]);
 
-  // 算出這週 7 天的日期
   const weekDates = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i)),
     [currentWeekStart]
@@ -56,8 +58,6 @@ export default function App() {
     () => weekDates.map(d => toISODate(d)),
     [weekDates]
   );
-
-  // 只顯示這一週的 shifts
   const weekShifts = useMemo(
     () => shifts.filter(s => weekDateStrings.includes(s.date)),
     [shifts, weekDateStrings]
@@ -74,10 +74,50 @@ export default function App() {
   const addShift = shift => setShifts(p => [...p, { id: Date.now(), ...shift }]);
   const deleteShift = id => setShifts(p => p.filter(s => s.id !== id));
 
+  // ── Drag & Drop handlers ──
+  const handleDragStart = (e, shiftId) => {
+    dragShiftId.current = shiftId;
+    e.dataTransfer.effectAllowed = 'move';
+    // 讓拖拉圖示半透明
+    e.currentTarget.style.opacity = '0.4';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    dragShiftId.current = null;
+    setDragOverCell(null);
+  };
+
+  const handleDragOver = (e, employeeId, date) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverCell({ employeeId, date });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = (e, targetEmployeeId, targetDate) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    const id = dragShiftId.current;
+    if (!id) return;
+
+    setShifts(prev =>
+      prev.map(s =>
+        s.id === id
+          ? { ...s, employeeId: targetEmployeeId, date: targetDate }
+          : s
+      )
+    );
+    dragShiftId.current = null;
+  };
+
   const handlePrevWeek = () => setCurrentWeekStart(p => addDays(p, -7));
   const handleNextWeek = () => setCurrentWeekStart(p => addDays(p, 7));
 
-  // Stats (這一週)
+  // Stats
   const totalHours = useMemo(
     () => employees.reduce((sum, emp) => sum + calcTotalHours(emp.id, weekShifts), 0),
     [employees, weekShifts]
@@ -94,7 +134,6 @@ export default function App() {
   );
   const maxDayHours = Math.max(...hoursPerDay, 1);
 
-  // Conflicts (全部 shifts，用來顯示 Conflict card)
   const allConflicts = useMemo(
     () => employees.flatMap(emp => {
       const { overlapShiftIds, consecutiveConflict } =
@@ -161,6 +200,11 @@ export default function App() {
             </div>
           </div>
 
+          {/* DnD hint */}
+          <p style={{ margin: '0 0 12px', fontSize: '0.75rem', color: '#374151' }}>
+            💡 Drag a shift pill to reassign it to a different employee or day
+          </p>
+
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
             <thead>
               <tr>
@@ -191,9 +235,7 @@ export default function App() {
                     <td style={tdStyle}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Avatar name={emp.name} size={28} />
-                        <span style={{
-                          fontSize: '0.85rem', fontWeight: 500, color: '#e2e8f0',
-                        }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#e2e8f0' }}>
                           {emp.name}
                         </span>
                         {consecutiveConflict && (
@@ -202,37 +244,53 @@ export default function App() {
                             title="Scheduled 5+ consecutive days"
                             style={{
                               width: 8, height: 8, borderRadius: '50%',
-                              background: '#F59E0B', display: 'inline-block',
-                              flexShrink: 0,
+                              background: '#F59E0B', display: 'inline-block', flexShrink: 0,
                             }}
                           />
                         )}
                       </div>
                     </td>
+
                     {weekDateStrings.map(iso => {
                       const dayShifts = weekShifts.filter(
                         s => s.employeeId === emp.id && s.date === iso
                       );
+                      const isOver = dragOverCell?.employeeId === emp.id && dragOverCell?.date === iso;
+
                       return (
                         <td
                           key={iso}
-                          className="cell-hover"
                           style={{
-                            ...tdStyle, minWidth: 90,
-                            cursor: 'pointer'
+                            ...tdStyle,
+                            minWidth: 90,
+                            cursor: 'pointer',
+                            background: isOver
+                              ? 'rgba(99,102,241,0.15)'
+                              : 'transparent',
+                            outline: isOver ? '2px dashed #6366F1' : 'none',
+                            transition: 'background 0.15s, outline 0.15s',
                           }}
-                          onClick={() =>
-                            setShiftModal({ employeeId: emp.id, date: iso })
-                          }
+                          onClick={() => setShiftModal({ employeeId: emp.id, date: iso })}
+                          onDragOver={e => handleDragOver(e, emp.id, iso)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={e => handleDrop(e, emp.id, iso)}
                         >
                           {dayShifts.length === 0
                             ? <span className="add-hint">＋</span>
                             : dayShifts.map(shift => (
                               <div
                                 key={shift.id}
+                                draggable
                                 className={`shift-pill${overlapShiftIds.has(shift.id) ? ' conflict' : ''}`}
-                                style={highlightShiftId === shift.id
-                                  ? { outline: '2px solid #F59E0B' } : {}}
+                                style={{
+                                  cursor: 'grab',
+                                  ...(highlightShiftId === shift.id ? { outline: '2px solid #F59E0B' } : {}),
+                                }}
+                                onDragStart={e => {
+                                  e.stopPropagation();
+                                  handleDragStart(e, shift.id);
+                                }}
+                                onDragEnd={handleDragEnd}
                               >
                                 <span>{shift.startTime}–{shift.endTime}</span>
                                 <button
@@ -480,7 +538,7 @@ export default function App() {
               addShift(payload);
             }
             setShiftModal(null);
-         }}
+          }}
           onClose={() => setShiftModal(null)}
         />
       )}
