@@ -2,7 +2,7 @@ import { getEmployeeConflicts } from '../utils/conflictUtils';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function WeekGrid({ employees, shifts }) {
+function WeekGrid({ employees, shifts, onDeleteShift }) {
   return (
     <div style={{ marginTop: '2rem', overflowX: 'auto' }}>
       <h2>週班表</h2>
@@ -39,7 +39,23 @@ function WeekGrid({ employees, shifts }) {
                             ...shiftTagStyle,
                             background: isConflict ? '#e53e3e' : '#4a90e2',
                           }}>
-                            {shift.startTime}–{shift.endTime}
+                            <span>{shift.startTime}–{shift.endTime}</span>
+                            <button
+                              onClick={() => onDeleteShift(shift.id)}
+                              style={{
+                                marginLeft: '4px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                padding: '0',
+                              }}
+                              title="刪除此班表"
+                            >
+                              ✕
+                            </button>
                           </div>
                         );
                       })}
@@ -64,6 +80,6 @@ function WeekGrid({ employees, shifts }) {
 
 const thStyle = { border: '1px solid #ccc', padding: '0.5rem 1rem', background: '#f0f0f0', textAlign: 'center' };
 const tdStyle = { border: '1px solid #ccc', padding: '0.5rem', verticalAlign: 'top', minWidth: '80px' };
-const shiftTagStyle = { color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.8rem', marginBottom: '2px' };
+const shiftTagStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'white', borderRadius: '4px', padding: '2px 6px', fontSize: '0.8rem', marginBottom: '2px' };
 
 export default WeekGrid;

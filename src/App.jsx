@@ -42,6 +42,10 @@ function App() {
     setShifts(prev => [...prev, shift]);
   };
 
+  const handleDeleteShift = (shiftId) => {
+    setShifts(prev => prev.filter(s => s.id !== shiftId));
+  };
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto' }}>
       <h1>Shift Roster Builder</h1>
@@ -52,7 +56,7 @@ function App() {
         onDelete={handleDeleteEmployee}
       />
       <ShiftForm employees={employees} onAddShift={handleAddShift} />
-      <WeekGrid employees={employees} shifts={shifts} />
+      <WeekGrid employees={employees} shifts={shifts} onDeleteShift={handleDeleteShift} />
       <SummaryPanel employees={employees} shifts={shifts} />
     </div>
   );
