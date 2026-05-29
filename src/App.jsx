@@ -1,12 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EmployeePanel from './components/EmployeePanel';
 import ShiftForm from './components/ShiftForm';
 import WeekGrid from './components/WeekGrid';
 import SummaryPanel from './components/SummaryPanel';
 
 function App() {
-  const [employees, setEmployees] = useState([]);
-  const [shifts, setShifts] = useState([]);
+  const [employees, setEmployees] = useState(() => {
+    const saved = localStorage.getItem('employees');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [shifts, setShifts] = useState(() => {
+    const saved = localStorage.getItem('shifts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('employees', JSON.stringify(employees));
+  }, [employees]);
+
+  useEffect(() => {
+    localStorage.setItem('shifts', JSON.stringify(shifts));
+  }, [shifts]);
 
   const handleAddEmployee = ({ name, roles }) => {
     setEmployees(prev => [...prev, { id: Date.now(), name, roles }]);
