@@ -1,4 +1,4 @@
-const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+import { addDays, toISODate } from './dateHelpers';
 
 function toMinutes(time) {
   const [h, m] = time.split(':').map(Number);
@@ -14,19 +14,20 @@ export function hasOverlap(shiftA, shiftB) {
 }
 
 export function hasConsecutiveDaysConflict(employeeShifts) {
-  const workedDays = [...new Set(employeeShifts.map(s => s.day))];
-  const indices = workedDays
-    .map(d => DAY_ORDER.indexOf(d))
-    .filter(i => i !== -1)
+  const dates = [...new Set(employeeShifts.map(s => s.date))]
+    .map(d => new Date(d))
     .sort((a, b) => a - b);
 
-  let count = 1;
-  for (let i = 1; i < indices.length; i++) {
-    if (indices[i] === indices[i - 1] + 1) {
-      count++;
-      if (count > 5) return true;
+  if (dates.length === 0) return false;
+
+  let streak = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const expectedNext = addDays(dates[i - 1], 1);
+    if (toISODate(dates[i]) === toISODate(expectedNext)) {
+      streak++;
+      if (streak > 5) return true;
     } else {
-      count = 1;
+      streak = 1;
     }
   }
   return false;
@@ -34,12 +35,14 @@ export function hasConsecutiveDaysConflict(employeeShifts) {
 
 export function getEmployeeConflicts(employeeId, shifts) {
   const empShifts = shifts.filter(s => s.employeeId === employeeId);
-
   const overlapConflicts = new Set();
+
   for (let i = 0; i < empShifts.length; i++) {
     for (let j = i + 1; j < empShifts.length; j++) {
-      if (empShifts[i].day === empShifts[j].day &&
-          hasOverlap(empShifts[i], empShifts[j])) {
+      if (
+        empShifts[i].date === empShifts[j].date &&
+        hasOverlap(empShifts[i], empShifts[j])
+      ) {
         overlapConflicts.add(empShifts[i].id);
         overlapConflicts.add(empShifts[j].id);
       }
