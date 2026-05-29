@@ -54,6 +54,10 @@ function StatCard({ icon, value, label, color = '#4A90E2' }) {
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+function roundHours(h) {
+  return Number.isInteger(h) ? h : parseFloat(h.toFixed(1));
+}
+
 export default function App() {
   const [employees, setEmployees] = useState(
     () => JSON.parse(localStorage.getItem('employees') || '[]')
@@ -129,7 +133,7 @@ export default function App() {
   const handleNextWeek = () => setCurrentWeekStart(p => addDays(p, 7));
 
   const totalHours = useMemo(
-    () => employees.reduce((sum, emp) => sum + calcTotalHours(emp.id, weekShifts), 0),
+    () => roundHours(employees.reduce((sum, emp) => sum + calcTotalHours(emp.id, weekShifts), 0)),
     [employees, weekShifts]
   );
   const totalShifts = weekShifts.length;
@@ -225,18 +229,14 @@ export default function App() {
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                     {h > 0 && (
                       <span style={{ fontSize: '0.6rem', color: '#4A90E2', fontWeight: 700, lineHeight: 1 }}>
-                        {Number.isInteger(h) ? h : h.toFixed(1)}
+                        {roundHours(h)}
                       </span>
                     )}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
                       <div style={{
-                        width: '100%',
-                        background: h > 0 ? '#4A90E2' : '#EDF2F7',
-                        borderRadius: '4px 4px 0 0',
-                        height: barH,
-                        opacity: h > 0 ? 0.85 : 0.5,
-                        transition: 'height 0.3s',
-                        minHeight: 4,
+                        width: '100%', background: h > 0 ? '#4A90E2' : '#EDF2F7',
+                        borderRadius: '4px 4px 0 0', height: barH,
+                        opacity: h > 0 ? 0.85 : 0.5, transition: 'height 0.3s', minHeight: 4,
                       }} />
                     </div>
                     <span style={{
@@ -479,7 +479,10 @@ export default function App() {
                     <Avatar name={emp.name} size={28} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1A202C' }}>{emp.name}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#A0AEC0', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{
+                        fontSize: '0.7rem', color: '#A0AEC0', marginTop: 2,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
                         {emp.roles.join(', ')}
                         {emp.unavailableDays?.length > 0 && ` · off ${emp.unavailableDays.join(', ')}`}
                         {emp.unavailableDates?.length > 0 && ` · +${emp.unavailableDates.length} date${emp.unavailableDates.length > 1 ? 's' : ''}`}
@@ -506,87 +509,94 @@ export default function App() {
               </button>
             </div>
 
-            {/* Weekly Summary */}
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1A202C' }}>Weekly Summary</span>
-                <div style={{ display: 'flex', gap: 6 }} className="no-print">
-                  <button
-                    onClick={() => exportCSV(employees, shifts, weekDates)}
-                    style={smallBtnStyle}
-                    title="Export CSV"
-                  >
-                    📤 CSV
-                  </button>
-                  <button onClick={() => window.print()} style={smallBtnStyle} title="Print">
-                    🖨️
-                  </button>
-                </div>
-              </div>
+          </div>
+        </div>
 
-              {employees.length === 0 && (
-                <p style={{ color: '#A0AEC0', fontSize: '0.85rem' }}>No employees yet</p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {employees.map(emp => {
-                  const hours = calcTotalHours(emp.id, weekShifts);
-                  const { hasAnyConflict } = getEmployeeConflicts(emp.id, weekShifts);
-                  const empShiftCount = weekShifts.filter(s => s.employeeId === emp.id).length;
-                  const pct = Math.min((hours / 40) * 100, 100);
-                  const sc = hasAnyConflict ? '#EF4444' : hours >= 40 ? '#22C55E' : hours > 0 ? '#4A90E2' : '#CBD5E0';
-                  const bgc = hasAnyConflict ? '#FEF2F2' : hours >= 40 ? '#F0FDF4' : hours > 0 ? '#EBF4FF' : '#F7F8FA';
-
-                  return (
-                    <div key={emp.id} style={{
-                      background: bgc,
-                      border: `1px solid ${sc}33`,
-                      borderRadius: 10, padding: '12px 14px',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Avatar name={emp.name} size={22} />
-                          <span style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1A202C' }}>{emp.name}</span>
-                        </div>
-                        <span style={{ fontSize: '0.83rem', fontWeight: 700, color: sc }}>{hours}h</span>
-                      </div>
-
-                      <div style={{ background: '#E2E8F0', borderRadius: 4, height: 5, marginBottom: 6 }}>
-                        <div style={{
-                          width: `${pct}%`, height: '100%',
-                          borderRadius: 4, background: sc, transition: 'width 0.4s',
-                        }} />
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.7rem', color: '#A0AEC0' }}>
-                          {empShiftCount} shift{empShiftCount !== 1 ? 's' : ''} · {hours} / 40h
-                        </span>
-                        {hasAnyConflict && (
-                          <span style={{
-                            fontSize: '0.65rem', background: '#FEE2E2', color: '#DC2626',
-                            borderRadius: 4, padding: '1px 6px', fontWeight: 600,
-                          }}>
-                            conflict
-                          </span>
-                        )}
-                        {!hasAnyConflict && hours >= 40 && (
-                          <span style={{
-                            fontSize: '0.65rem', background: '#DCFCE7', color: '#16A34A',
-                            borderRadius: 4, padding: '1px 6px', fontWeight: 600,
-                          }}>
-                            full week
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Bottom Summary Bar */}
+        {employees.length > 0 && (
+          <div className="card" style={{ marginTop: 24, padding: '20px 24px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', marginBottom: 16,
+            }}>
+              <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1A202C' }}>
+                Weekly Summary
+              </span>
+              <div style={{ display: 'flex', gap: 6 }} className="no-print">
+                <button
+                  onClick={() => exportCSV(employees, shifts, weekDates)}
+                  style={smallBtnStyle}
+                >
+                  📤 Export CSV
+                </button>
+                <button onClick={() => window.print()} style={smallBtnStyle}>
+                  🖨️ Print
+                </button>
               </div>
             </div>
 
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {employees.map(emp => {
+                const hours = calcTotalHours(emp.id, weekShifts);
+                const { hasAnyConflict } = getEmployeeConflicts(emp.id, weekShifts);
+                const empShiftCount = weekShifts.filter(s => s.employeeId === emp.id).length;
+                const pct = Math.min((hours / 40) * 100, 100);
+                const sc = hasAnyConflict ? '#EF4444' : hours >= 40 ? '#22C55E' : hours > 0 ? '#4A90E2' : '#CBD5E0';
+                const bgc = hasAnyConflict ? '#FEF2F2' : hours >= 40 ? '#F0FDF4' : hours > 0 ? '#EBF4FF' : '#F7F8FA';
+                const displayHours = roundHours(hours);
+
+                return (
+                  <div key={emp.id} style={{
+                    background: bgc, border: `1px solid ${sc}33`,
+                    borderRadius: 10, padding: '12px 16px',
+                    minWidth: 180, maxWidth: 240, flex: '0 1 200px',
+                  }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between', marginBottom: 8,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={emp.name} size={22} />
+                        <span style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1A202C' }}>
+                          {emp.name}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: sc }}>
+                        {displayHours}h
+                      </span>
+                    </div>
+
+                    <div style={{ background: '#E2E8F0', borderRadius: 4, height: 5, marginBottom: 6 }}>
+                      <div style={{
+                        width: `${pct}%`, height: '100%',
+                        borderRadius: 4, background: sc, transition: 'width 0.4s',
+                      }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.7rem', color: '#A0AEC0' }}>
+                        {empShiftCount} shift{empShiftCount !== 1 ? 's' : ''} · {displayHours} / 40h
+                      </span>
+                      {hasAnyConflict && (
+                        <span style={{
+                          fontSize: '0.65rem', background: '#FEE2E2', color: '#DC2626',
+                          borderRadius: 4, padding: '1px 6px', fontWeight: 600,
+                        }}>conflict</span>
+                      )}
+                      {!hasAnyConflict && hours >= 40 && (
+                        <span style={{
+                          fontSize: '0.65rem', background: '#DCFCE7', color: '#16A34A',
+                          borderRadius: 4, padding: '1px 6px', fontWeight: 600,
+                        }}>full week</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
 
       {/* Modals */}
@@ -622,7 +632,6 @@ export default function App() {
   );
 }
 
-// Shared styles
 const thStyle = {
   textAlign: 'left', padding: '10px 12px', color: '#718096',
   fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.04em',
