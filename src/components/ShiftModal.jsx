@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getEmployeeConflicts } from '../utils/conflictUtils';
 import { toISODate, addDays } from '../utils/dateHelpers';
+import { isUnavailable } from '../utils/availabilityHelpers';
 
 export default function ShiftModal({ employees, shifts, prefill, onSave, onClose }) {
   const defaultDate = prefill?.date || toISODate(new Date());
@@ -12,8 +13,15 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
   const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState('');
 
+  const selectedEmp = employees.find(e => e.id === Number(employeeId));
   const isMidnightCross = startTime !== '' && endTime !== '' && startTime > endTime;
 
+  // Availability warning
+  const unavailableWarning = selectedEmp && isUnavailable(selectedEmp, date)
+    ? `${selectedEmp.name} is marked unavailable on ${new Date(date).toLocaleDateString('en-US', { weekday: 'long' })}s`
+    : null;
+
+  // Overlap preview
   const previewConflict = (() => {
     if (!employeeId || isMidnightCross) return false;
     const preview = {
@@ -31,18 +39,11 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
   })();
 
   const handleSave = () => {
-    if (!employeeId) {
-      setError('Please select an employee');
-      return;
-    }
-    if (startTime === endTime) {
-      setError('Start and end time cannot be the same');
-      return;
-    }
+    if (!employeeId) { setError('Please select an employee'); return; }
+    if (startTime === endTime) { setError('Start and end time cannot be the same'); return; }
 
     const empId = Number(employeeId);
 
-    // 正常班（不跨午夜）
     if (startTime < endTime) {
       onSave({ employeeId: empId, date, startTime, endTime });
       return;
@@ -123,7 +124,19 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
 
         </div>
 
-        {/* 跨午夜提示 */}
+        {/* Availability warning */}
+        {unavailableWarning && (
+          <div style={{
+            marginTop: 12, padding: '8px 12px',
+            background: 'rgba(245,158,11,0.15)',
+            border: '1px solid rgba(245,158,11,0.35)',
+            borderRadius: 8, color: '#fcd34d', fontSize: '0.82rem',
+          }}>
+            ⚠️ {unavailableWarning}
+          </div>
+        )}
+
+        {/* Midnight cross info */}
         {isMidnightCross && (
           <div style={{
             marginTop: 12, padding: '8px 12px',
@@ -135,7 +148,7 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
           </div>
         )}
 
-        {/* 衝突預覽 */}
+        {/* Overlap conflict preview */}
         {previewConflict && (
           <div style={{
             marginTop: 12, padding: '8px 12px',
@@ -147,7 +160,6 @@ export default function ShiftModal({ employees, shifts, prefill, onSave, onClose
           </div>
         )}
 
-        {/* 錯誤訊息 */}
         {error && (
           <p style={{ color: '#fca5a5', fontSize: '0.82rem', margin: '8px 0 0' }}>
             {error}

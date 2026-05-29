@@ -6,6 +6,7 @@ import {
 } from './utils/dateHelpers';
 import ShiftModal from './components/ShiftModal';
 import EmployeeModal from './components/EmployeeModal';
+import { isUnavailable } from './utils/availabilityHelpers';
 
 function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -39,9 +40,8 @@ export default function App() {
     () => startOfWeek(new Date())
   );
 
-  // Drag & Drop state
   const dragShiftId = useRef(null);
-  const [dragOverCell, setDragOverCell] = useState(null); // { employeeId, date }
+  const [dragOverCell, setDragOverCell] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('employees', JSON.stringify(employees));
@@ -74,42 +74,37 @@ export default function App() {
   const addShift = shift => setShifts(p => [...p, { id: Date.now(), ...shift }]);
   const deleteShift = id => setShifts(p => p.filter(s => s.id !== id));
 
-  // ── Drag & Drop handlers ──
+  // Drag & Drop
   const handleDragStart = (e, shiftId) => {
     dragShiftId.current = shiftId;
     e.dataTransfer.effectAllowed = 'move';
-    // 讓拖拉圖示半透明
     e.currentTarget.style.opacity = '0.4';
   };
-
   const handleDragEnd = (e) => {
     e.currentTarget.style.opacity = '1';
     dragShiftId.current = null;
     setDragOverCell(null);
   };
-
   const handleDragOver = (e, employeeId, date) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverCell({ employeeId, date });
   };
-
-  const handleDragLeave = () => {
-    setDragOverCell(null);
-  };
-
+  const handleDragLeave = () => setDragOverCell(null);
   const handleDrop = (e, targetEmployeeId, targetDate) => {
     e.preventDefault();
     setDragOverCell(null);
     const id = dragShiftId.current;
     if (!id) return;
-
+    const targetEmp = employees.find(emp => emp.id === targetEmployeeId);
+    if (targetEmp && isUnavailable(targetEmp, targetDate)) {
+      const dayName = new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long' });
+      alert(`⚠️ ${targetEmp.name} is unavailable on ${dayName}s. Shift was not moved.`);
+      dragShiftId.current = null;
+      return;
+    }
     setShifts(prev =>
-      prev.map(s =>
-        s.id === id
-          ? { ...s, employeeId: targetEmployeeId, date: targetDate }
-          : s
-      )
+      prev.map(s => s.id === id ? { ...s, employeeId: targetEmployeeId, date: targetDate } : s)
     );
     dragShiftId.current = null;
   };
@@ -136,8 +131,7 @@ export default function App() {
 
   const allConflicts = useMemo(
     () => employees.flatMap(emp => {
-      const { overlapShiftIds, consecutiveConflict } =
-        getEmployeeConflicts(emp.id, shifts);
+      const { overlapShiftIds, consecutiveConflict } = getEmployeeConflicts(emp.id, shifts);
       const items = [];
       if (overlapShiftIds.size > 0)
         items.push({ emp, type: 'overlap', shiftIds: [...overlapShiftIds] });
@@ -149,16 +143,10 @@ export default function App() {
   );
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#0F0F14',
-      padding: '24px', boxSizing: 'border-box',
-    }}>
+    <div style={{ minHeight: '100vh', background: '#0F0F14', padding: '24px', boxSizing: 'border-box' }}>
 
-      {/* ── Header ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 20,
-      }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#f1f5f9' }}>
             Shift Roster Builder
@@ -179,18 +167,12 @@ export default function App() {
         </button>
       </div>
 
-      {/* ── Bento Grid ── */}
+      {/* Bento Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
 
-        {/* HERO: Weekly Roster Grid (col 1–8, row 1–2) */}
-        <div className="glass" style={{
-          gridColumn: '1 / 9', gridRow: '1 / 3',
-          padding: 20, overflowX: 'auto',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', marginBottom: 16,
-          }}>
+        {/* Weekly Roster Grid */}
+        <div className="glass" style={{ gridColumn: '1 / 9', gridRow: '1 / 3', padding: 20, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h2 style={{ margin: 0, color: '#f1f5f9', fontSize: '1rem', fontWeight: 600 }}>
               🗓️ Week of {formatWeekLabel(currentWeekStart)}
             </h2>
@@ -200,7 +182,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* DnD hint */}
           <p style={{ margin: '0 0 12px', fontSize: '0.75rem', color: '#374151' }}>
             💡 Drag a shift pill to reassign it to a different employee or day
           </p>
@@ -219,17 +200,13 @@ export default function App() {
             <tbody>
               {employees.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{
-                    textAlign: 'center', padding: '2rem',
-                    color: '#374151', fontSize: '0.9rem',
-                  }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#374151', fontSize: '0.9rem' }}>
                     No employees yet — click "＋ Add Employee" to get started
                   </td>
                 </tr>
               )}
               {employees.map(emp => {
-                const { overlapShiftIds, consecutiveConflict } =
-                  getEmployeeConflicts(emp.id, weekShifts);
+                const { overlapShiftIds, consecutiveConflict } = getEmployeeConflicts(emp.id, weekShifts);
                 return (
                   <tr key={emp.id}>
                     <td style={tdStyle}>
@@ -254,8 +231,11 @@ export default function App() {
                     {weekDateStrings.map(iso => {
                       const dayShifts = weekShifts.filter(
                         s => s.employeeId === emp.id && s.date === iso
-                      );
+                      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
                       const isOver = dragOverCell?.employeeId === emp.id && dragOverCell?.date === iso;
+                      // ── Availability check ──
+                      const unavail = isUnavailable(emp, iso);
 
                       return (
                         <td
@@ -264,8 +244,11 @@ export default function App() {
                             ...tdStyle,
                             minWidth: 90,
                             cursor: 'pointer',
+                            position: 'relative',
                             background: isOver
                               ? 'rgba(99,102,241,0.15)'
+                              : unavail
+                              ? 'rgba(245,158,11,0.07)'
                               : 'transparent',
                             outline: isOver ? '2px dashed #6366F1' : 'none',
                             transition: 'background 0.15s, outline 0.15s',
@@ -275,8 +258,25 @@ export default function App() {
                           onDragLeave={handleDragLeave}
                           onDrop={e => handleDrop(e, emp.id, iso)}
                         >
+                          {/* Unavailable badge — always shown at top of cell */}
+                          {unavail && (
+                            <div style={{
+                              fontSize: '0.6rem',
+                              color: '#fcd34d',
+                              background: 'rgba(245,158,11,0.15)',
+                              border: '1px solid rgba(245,158,11,0.3)',
+                              borderRadius: 4,
+                              padding: '1px 5px',
+                              marginBottom: dayShifts.length > 0 ? 4 : 2,
+                              fontWeight: 600,
+                              display: 'inline-block',
+                            }}>
+                              ⚠️ unavailable
+                            </div>
+                          )}
+
                           {dayShifts.length === 0
-                            ? <span className="add-hint">＋</span>
+                            ? <div><span className="add-hint">＋</span></div>
                             : dayShifts.map(shift => (
                               <div
                                 key={shift.id}
@@ -317,21 +317,15 @@ export default function App() {
           </table>
         </div>
 
-        {/* Total Staff (col 9–10, row 1) */}
-        <div className="glass" style={{
-          gridColumn: '9 / 11', padding: 20,
-          display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
+        {/* Total Staff */}
+        <div className="glass" style={{ gridColumn: '9 / 11', padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={statIconStyle('#6366F1')}>👤</div>
           <div style={bigNumStyle}>{employees.length}</div>
           <div style={captionStyle}>Staff active this week</div>
         </div>
 
-        {/* Weekly Hours (col 11–12, row 1) */}
-        <div className="glass" style={{
-          gridColumn: '11 / 13', padding: 20,
-          display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
+        {/* Weekly Hours */}
+        <div className="glass" style={{ gridColumn: '11 / 13', padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={statIconStyle('#22C55E')}>⏱️</div>
           <div style={bigNumStyle}>{totalHours}h</div>
           <div style={{ ...captionStyle, marginBottom: 4 }}>Total assigned this week</div>
@@ -350,26 +344,21 @@ export default function App() {
           </div>
         </div>
 
-        {/* Conflict Alert (col 9–12, row 2) */}
+        {/* Conflict Alert */}
         <div className="glass" style={{ gridColumn: '9 / 13', padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f1f5f9' }}>
-              ⚠️ Conflicts
-            </span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f1f5f9' }}>⚠️ Conflicts</span>
             {allConflicts.length > 0 && (
               <span style={{
                 background: 'rgba(239,68,68,0.2)', color: '#fca5a5',
-                borderRadius: 20, padding: '1px 8px',
-                fontSize: '0.75rem', fontWeight: 600,
+                borderRadius: 20, padding: '1px 8px', fontSize: '0.75rem', fontWeight: 600,
               }}>
                 {allConflicts.length}
               </span>
             )}
           </div>
           {allConflicts.length === 0
-            ? <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>
-                ✓ No conflicts detected
-              </p>
+            ? <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>✓ No conflicts detected</p>
             : allConflicts.map((c, i) => (
               <div
                 key={i}
@@ -391,31 +380,20 @@ export default function App() {
           }
         </div>
 
-        {/* Employee List (col 1–4, row 3) */}
-        <div className="glass" style={{
-          gridColumn: '1 / 5', padding: 20,
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', marginBottom: 14,
-          }}>
-            <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.95rem' }}>
-              👥 Team
-            </span>
+        {/* Employee List */}
+        <div className="glass" style={{ gridColumn: '1 / 5', padding: 20, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.95rem' }}>👥 Team</span>
             <span style={{
               background: 'rgba(99,102,241,0.2)', color: '#a5b4fc',
-              borderRadius: 20, padding: '2px 10px',
-              fontSize: '0.75rem', fontWeight: 600,
+              borderRadius: 20, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
             }}>
               {employees.length}
             </span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', maxHeight: 220 }}>
             {employees.length === 0 && (
-              <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>
-                No employees yet
-              </p>
+              <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>No employees yet</p>
             )}
             {employees.map(emp => (
               <div
@@ -430,9 +408,7 @@ export default function App() {
               >
                 <Avatar name={emp.name} size={30} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#e2e8f0' }}>
-                    {emp.name}
-                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 500, color: '#e2e8f0' }}>{emp.name}</div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
                     {emp.roles.map(r => (
                       <span key={r} style={{
@@ -442,6 +418,22 @@ export default function App() {
                         {r}
                       </span>
                     ))}
+                    {emp.unavailableDays?.length > 0 && (
+                      <span style={{
+                        background: 'rgba(245,158,11,0.15)', color: '#fcd34d',
+                        borderRadius: 4, padding: '1px 6px', fontSize: '0.7rem',
+                      }}>
+                        off: {emp.unavailableDays.join(', ')}
+                      </span>
+                    )}
+                    {emp.unavailableDates?.length > 0 && (
+                      <span style={{
+                        background: 'rgba(245,158,11,0.1)', color: '#fcd34d',
+                        borderRadius: 4, padding: '1px 6px', fontSize: '0.7rem',
+                      }}>
+                        +{emp.unavailableDates.length} date{emp.unavailableDates.length > 1 ? 's' : ''}
+                      </span>
+                    )}                    
                   </div>
                 </div>
                 <span style={{ color: '#4b5563', fontSize: '0.85rem' }}>✏️</span>
@@ -462,15 +454,10 @@ export default function App() {
           </button>
         </div>
 
-        {/* Weekly Summary (col 5–12, row 3) */}
+        {/* Weekly Summary */}
         <div className="glass" style={{ gridColumn: '5 / 13', padding: 20 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', marginBottom: 14,
-          }}>
-            <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.95rem' }}>
-              📋 Weekly Summary
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.95rem' }}>📋 Weekly Summary</span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={actionBtnStyle}>📤 Export CSV</button>
               <button style={actionBtnStyle}>🖨️ Print</button>
@@ -478,45 +465,29 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {employees.length === 0 && (
-              <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>
-                No employees yet
-              </p>
+              <p style={{ color: '#374151', fontSize: '0.85rem', margin: 0 }}>No employees yet</p>
             )}
             {employees.map(emp => {
               const hours = calcTotalHours(emp.id, weekShifts);
               const { hasAnyConflict } = getEmployeeConflicts(emp.id, weekShifts);
               const pct = Math.min((hours / 40) * 100, 100);
-              const sc = hasAnyConflict ? '#EF4444'
-                : hours >= 40 ? '#22C55E'
-                : hours > 0 ? '#6366F1'
-                : '#374151';
+              const sc = hasAnyConflict ? '#EF4444' : hours >= 40 ? '#22C55E' : hours > 0 ? '#6366F1' : '#374151';
               return (
                 <div key={emp.id} style={{
                   background: 'rgba(255,255,255,0.03)', borderRadius: 10,
-                  padding: '10px 14px', minWidth: 155,
-                  border: `1px solid ${sc}33`,
+                  padding: '10px 14px', minWidth: 155, border: `1px solid ${sc}33`,
                 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center',
-                    gap: 8, marginBottom: 8,
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <Avatar name={emp.name} size={24} />
-                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#e2e8f0' }}>
-                      {emp.name}
-                    </span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#e2e8f0' }}>{emp.name}</span>
                   </div>
-                  <div style={{
-                    background: 'rgba(255,255,255,0.08)',
-                    borderRadius: 4, height: 4, marginBottom: 6,
-                  }}>
+                  <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 4, height: 4, marginBottom: 6 }}>
                     <div style={{
                       width: `${pct}%`, height: '100%',
                       borderRadius: 4, background: sc, transition: 'width 0.4s',
                     }} />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: sc, fontWeight: 600 }}>
-                    {hours}h / 40h
-                  </div>
+                  <div style={{ fontSize: '0.75rem', color: sc, fontWeight: 600 }}>{hours}h / 40h</div>
                 </div>
               );
             })}
@@ -525,7 +496,7 @@ export default function App() {
 
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {shiftModal && (
         <ShiftModal
           employees={employees}
@@ -547,9 +518,7 @@ export default function App() {
           mode={empModal.mode}
           emp={empModal.emp}
           onSave={data => {
-            empModal.mode === 'add'
-              ? addEmployee(data)
-              : editEmployee(empModal.emp.id, data);
+            empModal.mode === 'add' ? addEmployee(data) : editEmployee(empModal.emp.id, data);
             setEmpModal(null);
           }}
           onDelete={empModal.mode === 'edit'
@@ -563,7 +532,7 @@ export default function App() {
   );
 }
 
-// ── Shared styles ──
+// Shared styles
 const thStyle = {
   textAlign: 'left', padding: '8px 10px', color: '#64748b',
   fontSize: '0.78rem', fontWeight: 600,
@@ -586,9 +555,7 @@ const actionBtnStyle = {
   color: '#94a3b8', borderRadius: 8,
   padding: '5px 12px', cursor: 'pointer', fontSize: '0.8rem',
 };
-const bigNumStyle = {
-  fontSize: '2.2rem', fontWeight: 700, color: '#f1f5f9', lineHeight: 1,
-};
+const bigNumStyle = { fontSize: '2.2rem', fontWeight: 700, color: '#f1f5f9', lineHeight: 1 };
 const captionStyle = { color: '#64748b', fontSize: '0.8rem' };
 const statIconStyle = color => ({
   width: 36, height: 36, borderRadius: '50%',
