@@ -45,3 +45,41 @@ body { background: #0F0F14; color: #e2e8f0; }
   50% { opacity: 0.4; }
 }
 .pulse-amber { animation: pulse-amber 2s infinite; }
+
+@media print {
+  /* 隱藏所有按鈕和 modal */
+  button { display: none !important; }
+
+  /* 黑底改白底 */
+  body, #root > div {
+    background: white !important;
+    color: black !important;
+    padding: 12px !important;
+  }
+
+  /* 移除 glass 效果 */
+  .glass {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* 文字改黑色 */
+  h1, h2, h3, span, td, th, p {
+    color: black !important;
+  }
+
+  /* 強制所有欄位顯示 */
+  table { page-break-inside: avoid; }
+
+  /* shift pill 改成黑白版本 */
+  .shift-pill {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e0 !important;
+  }
+
+  /* 隱藏 bento grid 右側 stats（只印 grid + summary） */
+  div[style*="gridColumn: '9"] { display: none !important; }
+}

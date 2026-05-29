@@ -7,6 +7,7 @@ import {
 import ShiftModal from './components/ShiftModal';
 import EmployeeModal from './components/EmployeeModal';
 import { isUnavailable } from './utils/availabilityHelpers';
+import { exportCSV } from './utils/exportHelpers';
 
 function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -98,8 +99,8 @@ export default function App() {
     if (!id) return;
     const targetEmp = employees.find(emp => emp.id === targetEmployeeId);
     if (targetEmp && isUnavailable(targetEmp, targetDate)) {
-      const dayName = new Date(targetDate).toLocaleDateString('en-US', { weekday: 'long' });
-      alert(`⚠️ ${targetEmp.name} is unavailable on ${dayName}s. Shift was not moved.`);
+      const dayName = new Date(targetDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      alert(`⚠️ ${targetEmp.name} is unavailable on ${dayName}. Shift was not moved.`);
       dragShiftId.current = null;
       return;
     }
@@ -229,12 +230,10 @@ export default function App() {
                     </td>
 
                     {weekDateStrings.map(iso => {
-                      const dayShifts = weekShifts.filter(
-                        s => s.employeeId === emp.id && s.date === iso
-                      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
-
+                      const dayShifts = weekShifts
+                        .filter(s => s.employeeId === emp.id && s.date === iso)
+                        .sort((a, b) => a.startTime.localeCompare(b.startTime));
                       const isOver = dragOverCell?.employeeId === emp.id && dragOverCell?.date === iso;
-                      // ── Availability check ──
                       const unavail = isUnavailable(emp, iso);
 
                       return (
@@ -258,18 +257,14 @@ export default function App() {
                           onDragLeave={handleDragLeave}
                           onDrop={e => handleDrop(e, emp.id, iso)}
                         >
-                          {/* Unavailable badge — always shown at top of cell */}
                           {unavail && (
                             <div style={{
-                              fontSize: '0.6rem',
-                              color: '#fcd34d',
+                              fontSize: '0.6rem', color: '#fcd34d',
                               background: 'rgba(245,158,11,0.15)',
                               border: '1px solid rgba(245,158,11,0.3)',
-                              borderRadius: 4,
-                              padding: '1px 5px',
+                              borderRadius: 4, padding: '1px 5px',
                               marginBottom: dayShifts.length > 0 ? 4 : 2,
-                              fontWeight: 600,
-                              display: 'inline-block',
+                              fontWeight: 600, display: 'inline-block',
                             }}>
                               ⚠️ unavailable
                             </div>
@@ -433,7 +428,7 @@ export default function App() {
                       }}>
                         +{emp.unavailableDates.length} date{emp.unavailableDates.length > 1 ? 's' : ''}
                       </span>
-                    )}                    
+                    )}
                   </div>
                 </div>
                 <span style={{ color: '#4b5563', fontSize: '0.85rem' }}>✏️</span>
@@ -458,9 +453,20 @@ export default function App() {
         <div className="glass" style={{ gridColumn: '5 / 13', padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '0.95rem' }}>📋 Weekly Summary</span>
+            {/* ── 兩個按鈕加上 onClick ── */}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={actionBtnStyle}>📤 Export CSV</button>
-              <button style={actionBtnStyle}>🖨️ Print</button>
+              <button
+                onClick={() => exportCSV(employees, shifts, weekDates)}
+                style={actionBtnStyle}
+              >
+                📤 Export CSV
+              </button>
+              <button
+                onClick={() => window.print()}
+                style={actionBtnStyle}
+              >
+                🖨️ Print
+              </button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
