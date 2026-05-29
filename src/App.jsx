@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import EmployeePanel from './components/EmployeePanel';
+import ShiftForm from './components/ShiftForm';
 
 function App() {
   const [employees, setEmployees] = useState([]);
+  const [shifts, setShifts] = useState([]);
 
   const handleAddEmployee = ({ name, roles }) => {
-    const newEmployee = { id: Date.now(), name, roles };
-    setEmployees(prev => [...prev, newEmployee]);
+    setEmployees(prev => [...prev, { id: Date.now(), name, roles }]);
   };
 
   const handleEditEmployee = (id, { name, roles }) => {
@@ -17,6 +18,11 @@ function App() {
 
   const handleDeleteEmployee = (id) => {
     setEmployees(prev => prev.filter(emp => emp.id !== id));
+    setShifts(prev => prev.filter(s => s.employeeId !== id));
+  };
+
+  const handleAddShift = (shift) => {
+    setShifts(prev => [...prev, shift]);
   };
 
   return (
@@ -28,6 +34,13 @@ function App() {
         onEdit={handleEditEmployee}
         onDelete={handleDeleteEmployee}
       />
+      <ShiftForm
+        employees={employees}
+        onAddShift={handleAddShift}
+      />
+      <p style={{ color: '#888', marginTop: '1rem' }}>
+        已記錄班表：{shifts.length} 筆
+      </p>
     </div>
   );
 }
