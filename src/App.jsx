@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import EmployeePanel from './components/EmployeePanel';
 import ShiftForm from './components/ShiftForm';
+import WeekGrid from './components/WeekGrid';
 
 function App() {
   const [employees, setEmployees] = useState([]);
@@ -26,7 +27,7 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto' }}>
       <h1>Shift Roster Builder</h1>
       <EmployeePanel
         employees={employees}
@@ -38,9 +39,10 @@ function App() {
         employees={employees}
         onAddShift={handleAddShift}
       />
-      <p style={{ color: '#888', marginTop: '1rem' }}>
-        已記錄班表：{shifts.length} 筆
-      </p>
+      <WeekGrid
+        employees={employees}
+        shifts={shifts}
+      />
     </div>
   );
 }
