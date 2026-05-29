@@ -73,6 +73,7 @@ export default function App() {
   );
 
   const dragShiftId = useRef(null);
+  const dateInputRef = useRef(null);
   const [dragOverCell, setDragOverCell] = useState(null);
 
   useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
@@ -131,6 +132,12 @@ export default function App() {
 
   const handlePrevWeek = () => setCurrentWeekStart(p => addDays(p, -7));
   const handleNextWeek = () => setCurrentWeekStart(p => addDays(p, 7));
+  const handleJumpToDate = e => {
+    if (!e.target.value) return;
+    const picked = new Date(e.target.value + 'T00:00:00');
+    setCurrentWeekStart(startOfWeek(picked));
+    e.target.value = '';
+  };
 
   const totalHours = useMemo(
     () => roundHours(employees.reduce((sum, emp) => sum + calcTotalHours(emp.id, weekShifts), 0)),
@@ -263,12 +270,34 @@ export default function App() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '16px 20px', borderBottom: '1px solid #EDF2F7',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button onClick={handlePrevWeek} style={navBtnStyle} className="no-print">←</button>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1A202C' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1A202C', minWidth: 160, textAlign: 'center' }}>
                     {formatWeekLabel(currentWeekStart)}
                   </span>
                   <button onClick={handleNextWeek} style={navBtnStyle} className="no-print">→</button>
+
+                  {/* ── Date picker：直接顯示 native input，最可靠 ── */}
+                  <div className="no-print" style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#A0AEC0' }}>📅</span>
+                    <input
+                      ref={dateInputRef}
+                      type="date"
+                      onChange={handleJumpToDate}
+                      title="Jump to any date's week"
+                      style={{
+                        background: '#F7F8FA',
+                        border: '1px solid #E2E8F0',
+                        color: '#4A5568',
+                        borderRadius: 8,
+                        padding: '4px 10px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: '#A0AEC0' }} className="no-print">
                   💡 Drag to reassign
@@ -523,10 +552,7 @@ export default function App() {
                 Weekly Summary
               </span>
               <div style={{ display: 'flex', gap: 6 }} className="no-print">
-                <button
-                  onClick={() => exportCSV(employees, shifts, weekDates)}
-                  style={smallBtnStyle}
-                >
+                <button onClick={() => exportCSV(employees, shifts, weekDates)} style={smallBtnStyle}>
                   📤 Export CSV
                 </button>
                 <button onClick={() => window.print()} style={smallBtnStyle}>
