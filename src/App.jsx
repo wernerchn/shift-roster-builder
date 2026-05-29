@@ -2,6 +2,7 @@ import { useState } from 'react';
 import EmployeePanel from './components/EmployeePanel';
 import ShiftForm from './components/ShiftForm';
 import WeekGrid from './components/WeekGrid';
+import SummaryPanel from './components/SummaryPanel';
 
 function App() {
   const [employees, setEmployees] = useState([]);
@@ -35,14 +36,9 @@ function App() {
         onEdit={handleEditEmployee}
         onDelete={handleDeleteEmployee}
       />
-      <ShiftForm
-        employees={employees}
-        onAddShift={handleAddShift}
-      />
-      <WeekGrid
-        employees={employees}
-        shifts={shifts}
-      />
+      <ShiftForm employees={employees} onAddShift={handleAddShift} />
+      <WeekGrid employees={employees} shifts={shifts} />
+      <SummaryPanel employees={employees} shifts={shifts} />
     </div>
   );
 }
